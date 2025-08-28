@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="en" class="bg-slate-950 text-slate-100">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>BlockDAG Monitor</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+  </head>
+  <body class="min-h-screen max-w-5xl mx-auto p-6">
+    <header class="mb-6">
+      <h1 class="text-3xl font-bold">BlockDAG Message Propagation Monitor</h1>
+      <p class="opacity-70">Paste logs → Ingest → View summary.</p>
+    </header>
+
+    <section class="mb-6">
+      <h2 class="text-xl font-semibold mb-2">Paste Log</h2>
+      <textarea id="logInput" rows="10"
+        class="w-full p-3 rounded bg-slate-900 border border-slate-700"></textarea>
+      <div class="flex gap-3 mt-3">
+        <button id="ingestBtn" class="px-4 py-2 rounded bg-blue-600 hover:bg-blue-700">Ingest</button>
+        <button id="refreshBtn" class="px-4 py-2 rounded bg-slate-700 hover:bg-slate-600">Refresh</button>
+      </div>
+    </section>
+
+    <section>
+      <h2 class="text-xl font-semibold mb-2">Blocks (Chronological)</h2>
+      <ul id="summaryList" class="border border-slate-700 rounded divide-y divide-slate-800"></ul>
+    </section>
+
+    <footer class="mt-10 text-xs opacity-60">HTML + Tailwind + vanilla JS</footer>
+    <script type="module" src="./js/app.js"></script>
+  </body>
+</html>

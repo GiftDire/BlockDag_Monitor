@@ -3,7 +3,8 @@ import cors from "cors";
 import dotenv from "dotenv";
 import { PrismaClient } from "@prisma/client";
 import { z } from "zod";
-import { parseLog } from "./parser";
+import { parseLog } from "./parse";
+
 
 dotenv.config();
 
@@ -11,20 +12,22 @@ const app = express();
 const prisma = new PrismaClient();
 const PORT = Number(process.env.PORT || 8080);
 
+app.use(cors({ origin: ["http://localhost:3000", "http://127.0.0.1:3000"] }));
+app.use(express.json({ limit: "2mb" }));
+
+
 app.use(cors());
 app.use(express.json({ limit: "2mb" }));
 
 app.get("/health", (_req, res) => res.json({ ok: true }));
 
-// Ingest raw log -> parse -> save to DB
 app.post("/api/ingest", async (req, res) => {
-  const bodySchema = z.object({ log: z.string().min(1, "log is required") });
-  const parsed = bodySchema.safeParse(req.body);
-  if (!parsed.success) return res.status(400).json({ error: parsed.error.issues });
+  const body = z.object({ log: z.string().min(1) }).safeParse(req.body);
+  if (!body.success) return res.status(400).json({ error: body.error.issues });
 
-  const { blocks, gossips } = parseLog(parsed.data.log);
+  const { blocks, gossips } = parseLog(body.data.log);
 
-  // upsert blocks + parents
+  // 1) Upsert blocks first (safe to re-ingest same IDs)
   for (const b of blocks) {
     await prisma.block.upsert({
       where: { id: b.id },
@@ -33,9 +36,6 @@ app.post("/api/ingest", async (req, res) => {
         fromNode: b.fromNode,
         timestamp: new Date(b.timestamp),
         payload: b.payload,
-        parents: {
-          create: b.parents.map((p) => ({ parentId: p, childId: b.id })),
-        },
       },
       update: {
         fromNode: b.fromNode,
@@ -45,7 +45,26 @@ app.post("/api/ingest", async (req, res) => {
     });
   }
 
-  // insert gossips
+  // 2) Insert parent→child edges directly into BlockParent
+  const edges: { parentId: string; childId: string }[] = [];
+  for (const b of blocks) {
+    for (const pid of b.parents ?? []) {
+      edges.push({ parentId: pid, childId: b.id });
+    }
+  }
+  if (edges.length) {
+    // SQLite: no skipDuplicates, so dedupe in code
+    const seen = new Set<string>();
+    const deduped = edges.filter(e => {
+      const k = `${e.parentId}→${e.childId}`;
+      if (seen.has(k)) return false;
+      seen.add(k);
+      return true;
+    });
+    await prisma.blockParent.createMany({ data: deduped });
+  }
+
+  // 3) Insert gossips
   for (const g of gossips) {
     await prisma.gossip.create({
       data: {
@@ -57,9 +76,11 @@ app.post("/api/ingest", async (req, res) => {
     });
   }
 
-  res.json({ inserted: { blocks: blocks.length, gossips: gossips.length } });
+  res.json({
+    ok: true,
+    inserted: { blocks: blocks.length, gossips: gossips.length, edges: edges.length },
+  });
 });
-
 // All blocks (chronological) with parent links
 app.get("/api/blocks", async (_req, res) => {
   const blocks = await prisma.block.findMany({
