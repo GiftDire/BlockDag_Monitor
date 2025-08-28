@@ -1,0 +1,35 @@
+datasource db {
+  provider = "sqlite"            // or postgresql in prod
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+model Block {
+  id        String         @id
+  fromNode  String
+  timestamp DateTime
+  payload   String
+  parents   BlockParent[]  @relation("ChildToParent")
+  children  BlockParent[]  @relation("ParentToChild")
+}
+
+model BlockParent {
+  id        Int    @id @default(autoincrement())
+  childId   String
+  parentId  String
+  child     Block  @relation("ChildToParent", fields: [childId], references: [id], onDelete: Cascade)
+  parent    Block  @relation("ParentToChild", fields: [parentId], references: [id])
+
+  @@unique([parentId, childId])  // <-- add this
+}
+
+model Gossip {
+  id        Int      @id @default(autoincrement())
+  fromNode  String
+  aboutId   String?
+  timestamp DateTime
+  payload   String
+}
