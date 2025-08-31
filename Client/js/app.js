@@ -60,6 +60,37 @@ async function loadSummary() {
     list.appendChild(li);
   });
 }
+const $ = (s) => document.querySelector(s);
+
+$("#searchBtn").addEventListener("click", async () => {
+  const id = $("#searchId").value.trim();
+  if (!id) return;
+  const r = await fetch(`/api/blocks/${encodeURIComponent(id)}`);
+  if (!r.ok) {
+    $("#searchResult").innerHTML = `<p class="text-red-400">Block not found.</p>`;
+    return;
+  }
+  const { block, gossips } = await r.json();
+  $("#searchResult").innerHTML = renderBlockDetail(block, gossips);
+});
+
+function renderBlockDetail(b, gossips) {
+  const parents = (b.parents || []).map((p) => p.parentId).join(", ") || "— (genesis)";
+  const g = (gossips || [])
+    .map((g) => `• ${g.fromNode} @ ${fmt(g.timestamp)} — ${g.aboutId ?? ""}`)
+    .join("<br>") || "—";
+  return `
+    <div class="rounded-xl border border-slate-700 p-4">
+      <div class="font-semibold">${b.id}</div>
+      <div class="text-sm text-slate-400">${fmt(b.timestamp)}</div>
+      <div class="mt-1">Parents: ${parents}</div>
+      <div class="mt-2">
+        <div class="text-slate-400">Gossips:</div>
+        <div>${g}</div>
+      </div>
+    </div>`;
+}
+
 
 // initial load
 loadSummary();

@@ -129,6 +129,14 @@ app.get("/favicon.ico", (_req, res) => res.status(204).end());
 app.get(/^(?!\/api\/).*/, (_req, res) => {
   res.sendFile(path.join(CLIENT_DIR, "index.html"));
 });
+if (process.env.NODE_ENV !== "production") {
+  app.post("/api/dev/reset", async (_req, res) => {
+    await prisma.blockParent.deleteMany();
+    await prisma.gossip.deleteMany();
+    await prisma.block.deleteMany();
+    res.json({ ok: true });
+  });
+}
 
 
 

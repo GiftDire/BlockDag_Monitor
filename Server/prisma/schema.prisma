@@ -23,7 +23,7 @@ model BlockParent {
   child     Block  @relation("ChildToParent", fields: [childId], references: [id], onDelete: Cascade)
   parent    Block  @relation("ParentToChild", fields: [parentId], references: [id])
 
-  @@unique([parentId, childId])  // <-- add this
+  @@unique([parentId, childId])  
 }
 
 model Gossip {
