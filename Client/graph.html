@@ -7,11 +7,30 @@
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tailwindcss/ui@latest/dist/tailwind-ui.min.css">
 </head>
 <body class="bg-slate-900 text-slate-100">
-  <div class="p-6 max-w-6xl mx-auto">
-    <a class="underline" href="/">← Back</a>
-    <h1 class="text-2xl font-bold mb-4">Block Graph</h1>
-    <div id="graph" style="height:70vh;background:#0b1220;border:1px solid #334155;border-radius:12px;"></div>
+  <div class="p-6 max-w-7xl mx-auto">
+    <div class="flex items-center justify-between mb-4">
+      <a class="underline" href="/">← Back</a>
+      <button id="refreshGraph" class="rounded-md bg-indigo-600 px-3 py-1.5 hover:bg-indigo-500">Refresh graph</button>
+    </div>
+
+    <h1 class="text-2xl font-bold mb-3">Block DAG</h1>
+    <p class="text-sm text-slate-400 mb-4">
+      Arrow direction is <strong>parent → child</strong>. Genesis blocks have no parents. Merge blocks have multiple parents.
+    </p>
+
+    <div class="grid grid-cols-12 gap-4">
+      <div class="col-span-9">
+        <div id="graph" style="height:70vh;background:#0b1220;border:1px solid #334155;border-radius:12px;"></div>
+      </div>
+      <div class="col-span-3">
+        <div id="inspector" class="rounded-xl border border-slate-700 p-4 text-sm">
+          <div class="font-semibold mb-2">Details</div>
+          <div id="inspectorBody" class="text-slate-300">Click a node to view block info.</div>
+        </div>
+      </div>
+    </div>
   </div>
+
   <script type="module" src="/js/graph.js"></script>
 </body>
 </html>

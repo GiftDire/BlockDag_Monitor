@@ -1,12 +1,30 @@
+// -------------------- config --------------------
 const API_BASE = "http://localhost:8080"; // change to your deployed URL later
 
-const logInput = document.getElementById("logInput");
-const ingestBtn = document.getElementById("ingestBtn");
-const refreshBtn = document.getElementById("refreshBtn");
-const list = document.getElementById("summaryList");
+// -------------------- utils --------------------
+const $ = (sel) => document.querySelector(sel);
+const fmt = (ts) =>
+  new Date(ts).toLocaleString(undefined, {
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+  });
 
-// optional: preload the same sample used in seed
-logInput.value = `# FROM: node-7
+// -------------------- elements --------------------
+const logInput     = $("#logInput");
+const ingestBtn    = $("#ingestBtn");
+const refreshBtn   = $("#refreshBtn");
+const list         = $("#summaryList");
+const searchBtn    = $("#searchBtn");
+const searchId     = $("#searchId");
+const searchResult = $("#searchResult");
+
+// -------------------- preload sample --------------------
+if (logInput) {
+  logInput.value = `# FROM: node-7
 TYPE: BLOCK
 PARENTS: []
 TIMESTAMP: 2025-08-07T09:13:12Z
@@ -22,63 +40,22 @@ PAYLOAD: tx { from: B, to: C, amount: 40 }
 TYPE: GOSSIP
 TIMESTAMP: 2025-08-07T09:13:32Z
 PAYLOAD: heard about BDG-002`;
-
-ingestBtn.addEventListener("click", async () => {
-  const log = logInput.value.trim();
-  if (!log) return alert("Paste a log first.");
-  await fetch(`${API_BASE}/api/ingest`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ log }),
-  });
-  await loadSummary();
-});
-
-refreshBtn.addEventListener("click", loadSummary);
-
-async function loadSummary() {
-  const summary = await fetch(`${API_BASE}/api/summary`).then(r => r.json());
-  list.innerHTML = "";
-  summary.forEach(b => {
-    const li = document.createElement("li");
-    li.className = "p-3 hover:bg-slate-900";
-    li.innerHTML = `
-      <div class="font-mono text-sm">${b.id}</div>
-      <div class="text-xs opacity-70">${new Date(b.timestamp).toLocaleString()}</div>
-      <div class="text-xs">Parents: ${b.parents.length ? b.parents.join(", ") : "— (genesis)"}</div>
-      ${
-        b.gossips?.length
-          ? `<div class="mt-2 text-xs opacity-80">
-               <div class="mb-1">Gossips:</div>
-               <ul class="list-disc pl-5">
-                 ${b.gossips.map(g => `<li>${g.fromNode} @ ${new Date(g.timestamp).toLocaleTimeString()} — ${g.aboutId ?? "—"}</li>`).join("")}
-               </ul>
-             </div>`
-          : ""
-      }
-    `;
-    list.appendChild(li);
-  });
 }
-const $ = (s) => document.querySelector(s);
 
-$("#searchBtn").addEventListener("click", async () => {
-  const id = $("#searchId").value.trim();
-  if (!id) return;
-  const r = await fetch(`/api/blocks/${encodeURIComponent(id)}`);
-  if (!r.ok) {
-    $("#searchResult").innerHTML = `<p class="text-red-400">Block not found.</p>`;
-    return;
-  }
-  const { block, gossips } = await r.json();
-  $("#searchResult").innerHTML = renderBlockDetail(block, gossips);
-});
+// -------------------- render helpers --------------------
+function renderBlockDetail(b, gossips = []) {
+  const parents =
+    (b.parents || []).map((p) => p.parentId).join(", ") || "— (genesis)";
+  const g =
+    gossips.length > 0
+      ? gossips
+          .map(
+            (g) =>
+              `• ${g.fromNode} @ ${fmt(g.timestamp)} — ${g.aboutId ?? "—"}`
+          )
+          .join("<br>")
+      : "—";
 
-function renderBlockDetail(b, gossips) {
-  const parents = (b.parents || []).map((p) => p.parentId).join(", ") || "— (genesis)";
-  const g = (gossips || [])
-    .map((g) => `• ${g.fromNode} @ ${fmt(g.timestamp)} — ${g.aboutId ?? ""}`)
-    .join("<br>") || "—";
   return `
     <div class="rounded-xl border border-slate-700 p-4">
       <div class="font-semibold">${b.id}</div>
@@ -91,6 +68,102 @@ function renderBlockDetail(b, gossips) {
     </div>`;
 }
 
+function renderSummaryItem(b) {
+  const parents = b.parents?.length ? b.parents.join(", ") : "— (genesis)";
+  const gList = (b.gossips || [])
+    .map(
+      (g) =>
+        `<li>${g.fromNode} @ ${new Date(g.timestamp).toLocaleTimeString()} — ${
+          g.aboutId ?? "—"
+        }</li>`
+    )
+    .join("");
+  const gHtml = gList
+    ? `<div class="mt-2 text-xs opacity-80">
+         <div class="mb-1">Gossips:</div>
+         <ul class="list-disc pl-5">${gList}</ul>
+       </div>`
+    : "";
 
-// initial load
+  return `
+    <div class="font-mono text-sm">${b.id}</div>
+    <div class="text-xs opacity-70">${fmt(b.timestamp)}</div>
+    <div class="text-xs">Parents: ${parents}</div>
+    ${gHtml}
+  `;
+}
+
+// -------------------- actions --------------------
+async function loadSummary() {
+  try {
+    const r = await fetch(`${API_BASE}/api/summary`);
+    if (!r.ok) throw new Error("summary failed");
+    const summary = await r.json();
+
+    list.innerHTML = "";
+    summary.forEach((b) => {
+      const li = document.createElement("li");
+      li.className = "p-3 hover:bg-slate-900";
+      li.innerHTML = renderSummaryItem(b);
+      list.appendChild(li);
+    });
+  } catch (err) {
+    console.error(err);
+    list.innerHTML =
+      '<li class="p-3 text-red-400">Failed to load summary.</li>';
+  }
+}
+
+async function ingest() {
+  const log = (logInput?.value || "").trim();
+  if (!log) {
+    alert("Paste a log first.");
+    return;
+  }
+  try {
+    const r = await fetch(`${API_BASE}/api/ingest`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ log }),
+    });
+    if (!r.ok) throw new Error("ingest failed");
+    await loadSummary();
+  } catch (err) {
+    console.error(err);
+    alert("Ingest failed. See console for details.");
+  }
+}
+
+async function lookup() {
+  const id = (searchId?.value || "").trim();
+  if (!id) return;
+  try {
+    const r = await fetch(
+      `${API_BASE}/api/blocks/${encodeURIComponent(id)}`
+    );
+    if (!r.ok) {
+      searchResult.innerHTML =
+        '<p class="text-red-400">Block not found.</p>';
+      return;
+    }
+    const { block, gossips } = await r.json();
+    searchResult.innerHTML = renderBlockDetail(block, gossips);
+  } catch (err) {
+    console.error(err);
+    searchResult.innerHTML =
+      '<p class="text-red-400">Lookup failed.</p>';
+  }
+}
+
+// -------------------- listeners --------------------
+if (ingestBtn) ingestBtn.addEventListener("click", ingest);
+if (refreshBtn) refreshBtn.addEventListener("click", loadSummary);
+if (searchBtn) {
+  searchBtn.addEventListener("click", (e) => {
+    e.preventDefault();
+    lookup();
+  });
+}
+
+// -------------------- initial load --------------------
 loadSummary();
