@@ -1,0 +1,11 @@
+/* Tailwind build entry (only needed if you compile Tailwind locally) */
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+.card {
+  @apply rounded-xl border border-slate-700 p-4 bg-slate-900/40;
+}
+.btn {
+  @apply rounded-md bg-indigo-600 px-4 py-2 hover:bg-indigo-500;
+}

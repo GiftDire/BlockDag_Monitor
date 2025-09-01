@@ -1,0 +1,62 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>Blocks • BlockDAG Monitor</title>
+  <!-- Tailwind via CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-slate-950 text-slate-100">
+  <div class="max-w-5xl mx-auto p-6">
+    <div class="flex items-center justify-between mb-6">
+      <a href="/" class="underline">← Back</a>
+      <div class="flex items-center gap-2">
+        <button id="refreshBtn" class="rounded-md bg-indigo-600 px-4 py-2 hover:bg-indigo-500">Refresh</button>
+      </div>
+    </div>
+
+    <h1 class="text-2xl font-bold mb-4">All Blocks</h1>
+    <p class="text-sm text-slate-400 mb-4">Chronological list of blocks with parents.</p>
+
+    <ul id="blocksList" class="space-y-3"></ul>
+  </div>
+
+  <script src="/js/api.js"></script>
+  <script>
+    const $ = (s) => document.querySelector(s);
+    const fmt = (ts) => new Date(ts).toLocaleString();
+
+    const list = $("#blocksList");
+    const refreshBtn = $("#refreshBtn");
+
+    function renderItem(b) {
+      const parents = (b.parents || []).map(p => p.parentId ?? p).join(", ") || "— (genesis)";
+      return `
+        <li class="rounded-xl border border-slate-700 p-4">
+          <div class="flex items-center justify-between">
+            <div class="font-mono font-semibold">${b.id}</div>
+            <div class="text-xs text-slate-400">${fmt(b.timestamp)}</div>
+          </div>
+          <div class="text-sm mt-1">From: <span class="text-slate-300">${b.fromNode ?? "n/a"}</span></div>
+          <div class="text-sm">Parents: ${parents}</div>
+        </li>
+      `;
+    }
+
+    async function load() {
+      try {
+        const blocks = await API.getBlocks(); // array of blocks (not summary)
+        // Sort by timestamp asc just in case
+        blocks.sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
+        list.innerHTML = blocks.map(renderItem).join("");
+      } catch (err) {
+        console.error(err);
+        list.innerHTML = '<li class="text-red-400">Failed to load blocks.</li>';
+      }
+    }
+
+    refreshBtn.addEventListener("click", load);
+    load();
+  </script>
+</body>
+</html>
